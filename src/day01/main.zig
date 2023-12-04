@@ -126,12 +126,12 @@ pub fn solve2(allocator: std.mem.Allocator, input: []const u8) !u32 {
 }
 
 test "solution1" {
-    var r = try solve1(@embedFile("input/01.input"));
+    var r = try solve1(@embedFile("input"));
     try testing.expectEqual(@as(u32, 54159), r);
 }
 
 test "solution2" {
-    var r = try solve2(testing.allocator, @embedFile("input/01.input"));
+    var r = try solve2(testing.allocator, @embedFile("input"));
     try testing.expectEqual(@as(u32, 53866), r);
 }
 
