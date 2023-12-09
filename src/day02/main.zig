@@ -1,103 +1,80 @@
 const std = @import("std");
 const testing = std.testing;
 
-const Error = error{ OutOfMemory, NoHeader, Malformed };
+const Error = error{ OutOfMemory, Malformed };
 
-fn _add(cnt: *i32, v: u32) bool {
-    cnt.* -= @as(i32, @intCast(v));
-    return cnt.* >= 0;
-}
+const Play = struct {
+    red: u32,
+    green: u32,
+    blue: u32,
 
-const Bucket = struct {
-    red: i32,
-    green: i32,
-    blue: i32,
+    pub fn create() Play {
+        return Play{ .red = 0, .green = 0, .blue = 0 };
+    }
 
-    pub fn add(self: *Bucket, key: []const u8, cnt: u32) !bool {
+    pub fn set(self: *Play, key: []const u8, v: u32) void {
         if (std.mem.eql(u8, key, "red")) {
-            return _add(&self.red, cnt);
+            self.red = v;
         } else if (std.mem.eql(u8, key, "green")) {
-            return _add(&self.green, cnt);
+            self.green = v;
         } else {
-            return _add(&self.blue, cnt);
+            self.blue = v;
         }
     }
 };
 
-fn full_bucket() Bucket {
-    return Bucket{ .red = 12, .green = 13, .blue = 14 };
-}
+const Game = struct { id: u32, plays: std.ArrayList(Play) };
 
-fn to_chunks(allocator: std.mem.Allocator, text: []const u8, sep: []const u8) ![][]const u8 {
-    var buf = std.ArrayList([]const u8).init(allocator);
-    defer buf.deinit();
+fn parse(line: []const u8, game: *Game) !void {
+    var colon_split = std.mem.split(u8, line, ": ");
+    var game_str = colon_split.first();
+    var plays_str = colon_split.rest();
 
-    var p = text[0..];
-    while (std.mem.indexOf(u8, p, sep)) |pos| {
-        var c = p[0..pos];
-        try buf.append(c);
-        p = p[pos + 1 ..];
-    }
-    if (p.len > 0) {
-        try buf.append(p);
-    }
+    var game_str_split = std.mem.split(u8, game_str, " ");
+    _ = game_str_split.first();
 
-    return buf.toOwnedSlice();
-}
+    game.*.id = try std.fmt.parseInt(u32, game_str_split.next().?, 10);
 
-fn is_ok(allocator: std.mem.Allocator, line: []const u8) !?u32 {
-    if (std.mem.indexOf(u8, line, ":")) |colon_pos| {
-        var id: u32 = try std.fmt.parseInt(u32, line[5..colon_pos], 10);
-        std.debug.print("{d}\n", .{id});
+    var chunks = std.mem.split(u8, plays_str, "; ");
+    while (chunks.next()) |chunk| {
+        var play: Play = Play.create();
 
-        var chunks = try to_chunks(allocator, line[colon_pos + 1 ..], ";");
-        defer allocator.free(chunks);
-
-        for (chunks) |chunk| {
-            std.debug.print("{s}\n", .{chunk});
-
-            var items = try to_chunks(allocator, chunk, ",");
-            defer allocator.free(items);
-
-            var bucket = full_bucket();
-
-            for (items) |item_| {
-                var item = item_[1..];
-
-                var space_pos = std.mem.indexOf(u8, item, " ");
-                if (space_pos == null) {
-                    return Error.Malformed;
-                }
-
-                var cnt = try std.fmt.parseInt(u32, item[0..space_pos.?], 10);
-                var name = item[space_pos.? + 1 ..];
-
-                std.debug.print(" {s}: {d}\n", .{ name, cnt });
-
-                if (!try bucket.add(name, cnt)) {
-                    std.debug.print(" no\n", .{});
-
-                    return null;
-                }
-            }
+        var entries = std.mem.split(u8, chunk, ", ");
+        while (entries.next()) |entry| {
+            var tokens = std.mem.split(u8, entry, " ");
+            var cnt = try std.fmt.parseInt(u32, tokens.next().?, 10);
+            var key = tokens.next().?;
+            play.set(key, cnt);
         }
 
-        return id;
-    } else {
-        return Error.NoHeader;
+        try game.plays.append(play);
     }
+}
+
+fn handleLine(allocator: std.mem.Allocator, line: []const u8) !?u32 {
+    var game = Game{ .id = 0, .plays = std.ArrayList(Play).init(allocator) };
+    defer game.plays.deinit();
+
+    try parse(line, &game);
+
+    for (game.plays.items) |play| {
+        if (play.red > 12 or play.green > 13 or play.blue > 14) {
+            return null;
+        }
+    }
+
+    return game.id;
 }
 
 pub fn solve1(allocator: std.mem.Allocator, input: []const u8) !u32 {
-    var splits = std.mem.split(u8, input, "\n");
-
     var r: u32 = 0;
-    while (splits.next()) |line| {
+    var split = std.mem.split(u8, input, "\n");
+    while (split.next()) |line| {
         if (line.len == 0) {
             continue;
         }
 
-        if (try is_ok(allocator, line)) |v| {
+        if (try handleLine(allocator, line)) |v| {
             r += v;
         }
     }
@@ -105,7 +82,15 @@ pub fn solve1(allocator: std.mem.Allocator, input: []const u8) !u32 {
     return r;
 }
 
+// #2
+
 test "solution1" {
     var r = try solve1(testing.allocator, @embedFile("input"));
     try testing.expectEqual(@as(u32, 2176), r);
 }
+
+// test "solution2" {
+//     var r = try solve1(testing.allocator, @embedFile("input"));
+//     _ = r;
+//     // try testing.expectEqual(@as(u32, 2176), r);
+// }
