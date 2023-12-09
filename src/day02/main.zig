@@ -1,7 +1,12 @@
 const std = @import("std");
 const testing = std.testing;
 
-const Error = error{ OutOfMemory, Malformed };
+const Error = error{
+    Overflow,
+    OutOfMemory,
+    InvalidCharacter,
+    Malformed,
+};
 
 const Play = struct {
     red: u32,
@@ -50,8 +55,23 @@ fn parse(line: []const u8, game: *Game) !void {
         try game.plays.append(play);
     }
 }
+pub fn solve(allocator: std.mem.Allocator, input: []const u8, cb: *const fn (allocator: std.mem.Allocator, line: []const u8) Error!?u32) Error!u32 {
+    var r: u32 = 0;
+    var split = std.mem.split(u8, input, "\n");
+    while (split.next()) |line| {
+        if (line.len == 0) {
+            continue;
+        }
 
-fn handleLine(allocator: std.mem.Allocator, line: []const u8) !?u32 {
+        if (try cb(allocator, line)) |v| {
+            r += v;
+        }
+    }
+
+    return r;
+}
+
+fn handle1(allocator: std.mem.Allocator, line: []const u8) Error!?u32 {
     var game = Game{ .id = 0, .plays = std.ArrayList(Play).init(allocator) };
     defer game.plays.deinit();
 
@@ -66,31 +86,30 @@ fn handleLine(allocator: std.mem.Allocator, line: []const u8) !?u32 {
     return game.id;
 }
 
-pub fn solve1(allocator: std.mem.Allocator, input: []const u8) !u32 {
-    var r: u32 = 0;
-    var split = std.mem.split(u8, input, "\n");
-    while (split.next()) |line| {
-        if (line.len == 0) {
-            continue;
-        }
-
-        if (try handleLine(allocator, line)) |v| {
-            r += v;
-        }
-    }
-
-    return r;
-}
-
 // #2
 
+fn handle2(allocator: std.mem.Allocator, line: []const u8) Error!?u32 {
+    var game = Game{ .id = 0, .plays = std.ArrayList(Play).init(allocator) };
+    defer game.plays.deinit();
+
+    try parse(line, &game);
+
+    var needed = Play{ .red = 0, .green = 0, .blue = 0 };
+    for (game.plays.items) |play| {
+        needed.red = @max(needed.red, play.red);
+        needed.green = @max(needed.green, play.green);
+        needed.blue = @max(needed.blue, play.blue);
+    }
+
+    return needed.red * needed.green * needed.blue;
+}
+
 test "solution1" {
-    var r = try solve1(testing.allocator, @embedFile("input"));
+    var r = try solve(testing.allocator, @embedFile("input"), handle1);
     try testing.expectEqual(@as(u32, 2176), r);
 }
 
-// test "solution2" {
-//     var r = try solve1(testing.allocator, @embedFile("input"));
-//     _ = r;
-//     // try testing.expectEqual(@as(u32, 2176), r);
-// }
+test "solution2" {
+    var r = try solve(testing.allocator, @embedFile("input"), handle2);
+    try testing.expectEqual(@as(u32, 63700), r);
+}
