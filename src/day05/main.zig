@@ -175,11 +175,7 @@ pub fn solve2(allocator: std.mem.Allocator, input: []const u8) !u64 {
 
     var seeds_ranges = try inputs.seeds_from_ranges(arena.allocator());
     for (seeds_ranges) |range| {
-        std.debug.print("{} - {}\n", .{range.beg, range.interval});
         for (range.beg..range.beg + range.interval) |seed| {
-            if (seed % 100000 == 0){
-                std.debug.print(" {}\n", .{seed});
-            }
             var v = inputs.get(seed);
             if (r == null or v < r.?) {
                 r = v;
