@@ -7,6 +7,7 @@ const d06 = @import("day06/main.zig");
 const d07 = @import("day07/main.zig");
 const d08 = @import("day08/main.zig");
 const d09 = @import("day09/main.zig");
+const d10 = @import("day10/main.zig");
 
 test "basic add functionality" {
     @import("std").testing.refAllDecls(@This());
